@@ -146,6 +146,25 @@ def table_counts(db_path: str) -> pd.DataFrame:
     finally:
         conn.close()
 
+def get_table_columns(db_path: str, table: str) -> pd.DataFrame:
+    """Retourne le schéma (colonnes) d'une table SQLite."""
+    conn = sqlite3.connect(db_path)
+    try:
+        return pd.read_sql_query(f"PRAGMA table_info({table});", conn)
+    finally:
+        conn.close()
+
+def run_sql(db_path: str, sql: str):
+    """Exécute une instruction SQL (INSERT/UPDATE/DELETE/DDL)."""
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
 st.title("🛠️ Étape 3 — DDL : Création et peuplement de la base")
 
 st.markdown(
@@ -195,6 +214,70 @@ if Path(DB_PATH).exists():
         st.dataframe(table_counts(DB_PATH), use_container_width=True)
     except Exception as e:
         st.warning(f"Impossible de lire la base : {e}")
+
+    # =========================
+    # Exemple d'INSERT
+    # =========================
+    st.markdown("## Exemple pédagogique : INSERT")
+    st.markdown(
+        """
+Comme la base est alimentée automatiquement via `to_sql()`, on ne voit pas explicitement des `INSERT`.
+Ci-dessous, on montre un exemple concret **sur la table `agency`** (si elle existe).
+"""
+    )
+
+    # Vérifie présence de la table agency
+    existing_tables = set(table_counts(DB_PATH)["table"].tolist())
+    if "agency" in existing_tables:
+        st.markdown("### Schéma de `agency` (colonnes)")
+        st.dataframe(get_table_columns(DB_PATH, "agency"), use_container_width=True)
+
+        st.markdown("### INSERT (exemple)")
+        st.code(
+            """
+INSERT INTO agency (agency_id, agency_name, agency_url, agency_timezone, agency_lang, agency_phone)
+VALUES ('demo_agency', 'Agence Démo', 'https://example.org', 'Europe/Paris', 'fr', '+33 1 23 45 67 89');
+""".strip(),
+            language="sql",
+        )
+
+        st.warning(
+            "⚠️ Cet INSERT ne marchera que si les colonnes listées existent dans ta version de `agency.txt` "
+            "et si `agency_id='demo_agency'` n’existe pas déjà (sinon, contrainte d’unicité si applicable)."
+        )
+
+        if st.button("▶️ Exécuter l'INSERT démo dans agency"):
+            try:
+                rowcount = run_sql(
+                    DB_PATH,
+                    """
+INSERT INTO agency (agency_id, agency_name, agency_url, agency_timezone, agency_lang, agency_phone)
+VALUES ('demo_agency', 'Agence Démo', 'https://example.org', 'Europe/Paris', 'fr', '+33 1 23 45 67 89');
+""".strip(),
+                )
+                st.success(f"INSERT exécuté ✅ (rowcount={rowcount})")
+                st.dataframe(table_counts(DB_PATH), use_container_width=True)
+            except Exception as e:
+                st.error(f"Erreur INSERT : {e}")
+
+        st.markdown("### Vérifier l'insertion (SELECT)")
+        st.code(
+            "SELECT * FROM agency WHERE agency_id = 'demo_agency';",
+            language="sql",
+        )
+        if st.button("🔎 Afficher la ligne insérée (SELECT)"):
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                df_demo = pd.read_sql_query(
+                    "SELECT * FROM agency WHERE agency_id = 'demo_agency';",
+                    conn,
+                )
+                conn.close()
+                st.dataframe(df_demo, use_container_width=True)
+            except Exception as e:
+                st.error(f"Erreur SELECT : {e}")
+    else:
+        st.info("La table `agency` n'existe pas dans la base actuelle (fichier agency.txt absent).")
 
 st.markdown("## Remarque pédagogique")
 st.info(
