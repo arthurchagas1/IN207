@@ -23,7 +23,7 @@ Le MCD ci-dessous modélise les principaux objets métier :
 )
 
 # -----------------------------
-# 1) Entités et attributs (MCD)
+# 1) Entités et attributs
 # -----------------------------
 st.subheader("1) Entités et attributs")
 
@@ -108,7 +108,6 @@ mcd_entities = {
     ],
 }
 
-# Affichage en colonnes
 cols = st.columns(3)
 for i, (entity, attrs) in enumerate(mcd_entities.items()):
     with cols[i % 3]:
@@ -123,62 +122,70 @@ st.subheader("2) Associations et cardinalités")
 
 assoc_df = pd.DataFrame(
     [
-        ["AGENCY", "ROUTE", "Une agence gère plusieurs lignes", "1,N"],
-        ["ROUTE", "TRIP", "Une ligne possède plusieurs courses", "1,N"],
-        ["SERVICE", "TRIP", "Un service planifie plusieurs courses", "1,N"],
-        ["SERVICE", "SERVICE_EXCEPTION", "Un service possède des exceptions de calendrier", "1,N"],
-        ["TRIP", "STOP_TIME", "Une course est composée de passages horodatés", "1,N"],
-        ["STOP", "STOP_TIME", "Un arrêt apparaît dans plusieurs passages", "1,N"],
-        ["STOP", "STOP", "Hiérarchie station ↔ quai / accès (parent_station)", "1,N"],
-        ["STOP", "TRANSFER", "Correspondance sortante (from_stop)", "1,N"],
-        ["STOP", "TRANSFER", "Correspondance entrante (to_stop)", "1,N"],
-        ["STOP", "PATHWAY", "Cheminement interne sortant", "1,N"],
-        ["STOP", "PATHWAY", "Cheminement interne entrant", "1,N"],
+        ["AGENCY", "ROUTE", "gère", "(0,N)", "(1,1)"],
+        ["ROUTE", "TRIP", "possède", "(0,N)", "(1,1)"],
+        ["SERVICE", "TRIP", "planifie", "(0,N)", "(1,1)"],
+        ["SERVICE", "SERVICE_EXCEPTION", "a des exceptions", "(0,N)", "(1,1)"],
+        ["TRIP", "STOP_TIME", "est composé de", "(1,N)", "(1,1)"],
+        ["STOP", "STOP_TIME", "apparaît dans", "(0,N)", "(1,1)"],
+        ["STOP (parent)", "STOP (enfant)", "parent_station", "(0,N)", "(0,1)"],
+        ["STOP", "TRANSFER", "from_stop", "(0,N)", "(1,1)"],
+        ["STOP", "TRANSFER", "to_stop", "(0,N)", "(1,1)"],
+        ["STOP", "PATHWAY", "from_stop", "(0,N)", "(1,1)"],
+        ["STOP", "PATHWAY", "to_stop", "(0,N)", "(1,1)"],
     ],
-    columns=["Entité A", "Entité B", "Association", "Cardinalité"],
+    columns=[
+        "Entité A",
+        "Entité B",
+        "Association",
+        "Cardinalité A",
+        "Cardinalité B",
+    ],
 )
+
 st.dataframe(assoc_df, use_container_width=True)
 
 # -----------------------------
 # 3) Diagramme MCD automatique (Graphviz)
 # -----------------------------
-st.subheader("3) Diagramme MCD (généré automatiquement)")
+st.subheader("3) Diagramme MCD")
 
 dot = r"""
 digraph MCD_GTFS {
     rankdir=LR;
-    graph [fontsize=10, fontname="Helvetica", splines=true, overlap=false];
+    graph [fontsize=10, fontname="Helvetica", splines=true, overlap=false, pad=0.3];
     node  [shape=record, fontname="Helvetica", fontsize=10];
-    edge  [fontname="Helvetica", fontsize=9];
+    edge  [fontname="Helvetica", fontsize=9, dir=none];
 
     AGENCY [label="{AGENCY|PK agency_id\lagency_name\lagency_url\lagency_timezone\lagency_lang\lagency_phone\lagency_email\l}"];
-    ROUTE [label="{ROUTE|PK route_id\lFK agency_id\lroute_short_name\lroute_long_name\lroute_type\lroute_color\lroute_text_color\l}"];
+    ROUTE [label="{ROUTE|PK route_id\lFK agency_id\lroute_short_name\lroute_long_name\lroute_desc\lroute_type\lroute_color\lroute_text_color\l}"];
     SERVICE [label="{SERVICE|PK service_id\lmonday..sunday\lstart_date\lend_date\l}"];
     SERVICE_EXCEPTION [label="{SERVICE_EXCEPTION|PK/FK service_id\lPK date\lexception_type\l}"];
-    TRIP [label="{TRIP|PK trip_id\lFK route_id\lFK service_id\ltrip_headsign\ldirection_id\lblock_id\lwheelchair_accessible\lbikes_allowed\l}"];
+    TRIP [label="{TRIP|PK trip_id\lFK route_id\lFK service_id\ltrip_headsign\ltrip_short_name\ldirection_id\lblock_id\lwheelchair_accessible\lbikes_allowed\l}"];
     STOP [label="{STOP|PK stop_id\lstop_name\lstop_lat\lstop_lon\llocation_type\lFK parent_station\lzone_id\lwheelchair_boarding\lplatform_code\l}"];
     STOP_TIME [label="{STOP_TIME|PK/FK trip_id\lPK stop_sequence\lFK stop_id\larrival_time\ldeparture_time\lpickup_type\ldrop_off_type\ltimepoint\l}"];
     TRANSFER [label="{TRANSFER|PK transfer_id\lFK from_stop_id\lFK to_stop_id\ltransfer_type\lmin_transfer_time\l}"];
     PATHWAY [label="{PATHWAY|PK pathway_id\lFK from_stop_id\lFK to_stop_id\lpathway_mode\lis_bidirectional\ltraversal_time\llength_meters\l}"];
 
     // Relations principales
-    AGENCY -> ROUTE [label="gère 1,N", arrowhead="crow", arrowsize=0.8];
-    ROUTE -> TRIP [label="contient 1,N", arrowhead="crow", arrowsize=0.8];
-    SERVICE -> TRIP [label="planifie 1,N", arrowhead="crow", arrowsize=0.8];
-    SERVICE -> SERVICE_EXCEPTION [label="a des exceptions 1,N", arrowhead="crow", arrowsize=0.8];
+    AGENCY -> ROUTE [taillabel="(0,N)", headlabel="(1,1)", label="gère", labeldistance=2.2];
+    ROUTE -> TRIP [taillabel="(0,N)", headlabel="(1,1)", label="possède", labeldistance=2.2];
+    SERVICE -> TRIP [taillabel="(0,N)", headlabel="(1,1)", label="planifie", labeldistance=2.2];
+    SERVICE -> SERVICE_EXCEPTION [taillabel="(0,N)", headlabel="(1,1)", label="a des exceptions", labeldistance=2.2];
 
-    TRIP -> STOP_TIME [label="compose 1,N", arrowhead="crow", arrowsize=0.8];
-    STOP -> STOP_TIME [label="dessert 1,N", arrowhead="crow", arrowsize=0.8];
+    TRIP -> STOP_TIME [taillabel="(1,N)", headlabel="(1,1)", label="est composé de", labeldistance=2.2];
+    STOP -> STOP_TIME [taillabel="(0,N)", headlabel="(1,1)", label="apparaît dans", labeldistance=2.2];
 
-    // Auto-relation stop (parent_station)
-    STOP -> STOP [label="parent_station (1,N)", arrowhead="crow", arrowsize=0.7, color="gray40"];
+    // Auto-relation STOP
+    STOP -> STOP [taillabel="(0,N)", headlabel="(0,1)", label="parent_station", color="gray40", labeldistance=2.0];
 
-    // Transfers et pathways
-    STOP -> TRANSFER [label="from_stop (1,N)", arrowhead="crow", arrowsize=0.7, color="gray35"];
-    STOP -> TRANSFER [label="to_stop (1,N)", arrowhead="crow", arrowsize=0.7, color="gray35"];
+    // Transfers
+    STOP -> TRANSFER [taillabel="(0,N)", headlabel="(1,1)", label="from_stop", color="gray35", labeldistance=2.0];
+    STOP -> TRANSFER [taillabel="(0,N)", headlabel="(1,1)", label="to_stop", color="gray35", labeldistance=2.0];
 
-    STOP -> PATHWAY [label="from_stop (1,N)", arrowhead="crow", arrowsize=0.7, color="gray35"];
-    STOP -> PATHWAY [label="to_stop (1,N)", arrowhead="crow", arrowsize=0.7, color="gray35"];
+    // Pathways
+    STOP -> PATHWAY [taillabel="(0,N)", headlabel="(1,1)", label="from_stop", color="gray35", labeldistance=2.0];
+    STOP -> PATHWAY [taillabel="(0,N)", headlabel="(1,1)", label="to_stop", color="gray35", labeldistance=2.0];
 }
 """
 
@@ -193,18 +200,26 @@ st.markdown(
     """
 - **PK** : clé primaire  
 - **FK** : clé étrangère  
-- `STOP_TIME` est l'entité d'association entre **TRIP** et **STOP** (elle porte les horaires et l’ordre des arrêts).  
-- `STOP` est une entité hiérarchique :
-  - un **arrêt physique**,
-  - une **station / gare**,
-  - un **accès**,
-  - etc. (selon `location_type`).
-- `TRANSFER` modélise les correspondances à pied entre arrêts proches.
-- `PATHWAY` modélise les cheminements internes (gare/station).
+- Les cardinalités sont exprimées **à chaque extrémité** de la relation.
+- `(0,N)` signifie : participation facultative, potentiellement multiple.
+- `(1,1)` signifie : participation obligatoire et unique.
+- `(1,N)` signifie : participation obligatoire et multiple.
+- `(0,1)` signifie : participation facultative et unique.
+
+### Interprétation métier
+- Une **AGENCY** peut gérer zéro à plusieurs **ROUTE** ; une **ROUTE** appartient à une seule **AGENCY**.
+- Une **ROUTE** peut avoir zéro à plusieurs **TRIP** ; un **TRIP** appartient à une seule **ROUTE**.
+- Un **SERVICE** peut planifier zéro à plusieurs **TRIP** ; un **TRIP** dépend d’un seul **SERVICE**.
+- Un **SERVICE** peut avoir zéro à plusieurs **SERVICE_EXCEPTION** ; chaque exception appartient à un seul service.
+- Un **TRIP** est composé d’un ou plusieurs **STOP_TIME** ; chaque **STOP_TIME** appartient à un seul **TRIP**.
+- Un **STOP** peut apparaître dans zéro à plusieurs **STOP_TIME** ; chaque **STOP_TIME** référence un seul **STOP**.
+- Un **STOP parent** peut regrouper plusieurs **STOP enfants** ; un **STOP enfant** a au plus un **parent_station**.
+- `TRANSFER` modélise les correspondances à pied entre arrêts.
+- `PATHWAY` modélise les cheminements internes dans une station/gare.
 """
 )
 
 st.info(
-    "Ce MCD est suffisamment riche pour générer un MLD avec plus de 4 tables, "
-    "et permet de construire des requêtes SQL variées (jointures, agrégations, divisions, etc.)."
+    "Cette version est plus correcte pour un MCD, car les cardinalités sont "
+    "portées par chaque extrémité de la relation et non fusionnées au milieu de l’arête."
 )
